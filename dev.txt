@@ -168,3 +168,7 @@ FROM sysforeignkeys INNER JOIN sysobjects fk ON sysforeignkeys.constid = fk.id I
       syscolumns rt ON sysforeignkeys.rkeyid = rt.id AND
       sysforeignkeys.rkey = rt.colid
 where rtable.name = '表名'
+
+
+Git is a distributed version control system.
+Git is free software.
