@@ -1,0 +1,170 @@
+#开发笔记
+
+[toc]
+
+##angular
+- angular.module(name, [requires], [configFn]);
+- name：字符串类型，代表模块的名称；
+- requires：字符串的数组，代表该模块依赖的其他模块列表，如果不依赖其他模块，用空数组即可；
+- configFn：用来对该模块进行一些配置。
+
+##开发规范
+`https://td.gitbooks.io/development-guide/content/backend/contents.html`
+
+##sql
+
+-update夺标联查
+- update lc SET lc.empNo = 100212,lc.empName = '沈莉',lc.orgId = 23248
+FROM T_DK_LOAN_CASE lc
+LEFT JOIN T_FMS_CASE c on c.id = lc.caseId
+LEFT JOIN oms..T_OMS_ORGANIZATION o on o.orgCode = c.BRANCH
+WHERE parentId in (SELECT id FROM oms..T_OMS_ORGANIZATION WHERE orgType = '门店' AND orgName in ('豪宅店', '淮海店') )
+AND lc.status = 2 AND lc.empNo != 100212
+
+
+- update T_DK_LOAN_ARCHIVEMENT_APPLY set archivementCount=(
+		SELECT SUM(totalMoney)totalmoney from T_DK_ARCHIVEMENT_INFO
+  where T_DK_ARCHIVEMENT_INFO.loanApplyId=T_DK_LOAN_ARCHIVEMENT_APPLY.id
+  GROUP BY loanApplyId
+)
+
+- INSERT INTO T_DK_RECEIPT (receiptNo,loanCaseId,money,createdAt)(
+	select receiptNo,loanCaseId,receiptmoney,createdAt FROM T_DK_ARCHIVEMENT_RECEIPT where id = 3
+)
+
+- 在SQL语句中，表的后面添加WITH(NOLOCK)，其意义在于：当事物1来修改当前表的时候，而且数据已被修改，但是当前事物黑没有提交，而此时事物2来查询该表的数据，查询到的数据就是事物1修改之前的数据，而不是已修改过的数据。这个过程就是读取脏数据（脏读）。只能在select查询时，才能使用WITH(NOLOCK)，在update、insert、delete时就不能使用WITH(NOLOCK)。
+
+##windows常用命令
+- 查看机器端口号占用情况
+netstat -ano | findstr 端口号
+![Alt text](./1446430913837.png)
+如上如所示：1099端口被进程PID为6028的占用
+
+缓存：ehchace（map的key/value）,memcache, Solr是一个基于Lucene的Java搜索引擎服务器
+
+##springmvc部署报错
+- `org.apache.jasper.JasperException: Unable to compile class for JSP:
+An error occurred at line: [63] in the generated java file: [C:\Users\Administrator\.IntelliJIdea14\system\tomcat\Tomcat_8_0_26_sm\work\Catalina\localhost\ROOT\org\apache\jsp\WEB_002dINF\pages\hello_jsp.java]
+The method getDispatcherType() is undefined for the type HttpServletRequest`
+解决方案：删除依赖包中的servlet-api.jar包就可以了。
+
+##事务类型
+
+- `PROPAGATION_REQUIRED：`支持当前事务，如果当前没有事务，就新建一个事务。这是最常见的选择。
+- `PROPAGATION_SUPPORTS：`支持当前事务，如果当前没有事务，就以非事务方式执行。
+- `PROPAGATION_MANDATORY：`支持当前事务，如果当前没有事务，就抛出异常。
+- `PROPAGATION_REQUIRES_NEW：`新建事务，如果当前存在事务，把当前事务挂起。
+- `PROPAGATION_NOT_SUPPORTED：`以非事务方式执行操作，如果当前存在事务，就把当前事务挂起。
+- `PROPAGATION_NEVER：`以非事务方式执行，如果当前存在事务，则抛出异常。
+
+举例说明：
+- `PROPAGATION_REQUIRED：`加入当前正要执行的事务不在另外一个事务里，那么就起一个新的事务。比如说，ServiceB.methodB的事务级别定义为PROPAGATION_REQUIRED, 那么由于执行ServiceA.methodA的时候，ServiceA.methodA已经起了事务，这时调用ServiceB.methodB，ServiceB.methodB看到自己已经运行在ServiceA.methodA的事务内部，就不再起新的事务。而假如ServiceA.methodA运行的时候发现自己没有在事务中，他就会为自己分配一个事务。这样，在ServiceA.methodA或者在ServiceB.methodB内的任何地方出现异常，事务都会被回滚。即使ServiceB.methodB的事务已经被提交，但是ServiceA.methodA在接下来fail要回滚，ServiceB.methodB也要回滚。
+
+- `PROPAGATION_REQUIRES_NEW：`这个就比较绕口了。 比如我们设计ServiceA.methodA的事务级别为PROPAGATION_REQUIRED，ServiceB.methodB的事务级别为PROPAGATION_REQUIRES_NEW，那么当执行到ServiceB.methodB的时候，ServiceA.methodA所在的事务就会挂起，ServiceB.methodB会起一个新的事务，等待ServiceB.methodB的事务完成以后，他才继续执行。他与PROPAGATION_REQUIRED 的事务区别在于事务的回滚程度了。因为ServiceB.methodB是新起一个事务，那么就是存在两个不同的事务。如果ServiceB.methodB已经提交，那么ServiceA.methodA失败回滚，ServiceB.methodB是不会回滚的。如果ServiceB.methodB失败回滚，如果他抛出的异常被ServiceA.methodA捕获，ServiceA.methodA事务仍然可能提交。
+
+- `PROPAGATION_NEVER`:不能在事务中运行。假设ServiceA.methodA的事务级别是PROPAGATION_REQUIRED，而ServiceB.methodB的事务级别是PROPAGATION_NEVER ，那么ServiceB.methodB就要抛出异常了
+
+##脏读，不可重复读，幻读
+- `脏读`: 指当一个事务正在访问数据，并且对数据进行了修改，而这种修改还没有提交到数据库中，这时另外一个事务也访问这个数据，然后使用了这个数据。因为这个数据是还没有提交的数据， 那么另外一个事务读到的这个数据是脏数据，依据脏数据所做的操作可能是不正确的。
+
+- `不可重复读`: 指在一个事务内，多次读同一数据。在这个事务还没有结束时，另外一个事务也访问该同一数据。 那么，在第一个事务中的两次读数据之间，由于第二个事务的修改，那么第一个事务两次读到的数据可能是不一样的。这样就发生了在一个事务内两次读到的数据是不一样的，因此称为是不可重复读。
+
+- `幻读`: 指当事务不是独立执行时发生的一种现象，例如第一个事务对一个表中的数据进行了修改，这种修改涉及到表中的全部数据行。同时，第二个事务也修改这个表中的数据，这种修改是向表中插入一行新数据。那么，以后就会发生操作第一个事务的用户发现表中还有没有修改的数据行，就好象发生了幻觉一样。
+
+##icons
+http://fortawesome.github.io/Font-Awesome/icons/
+
+##java读取excel文件
+    public void getExcelData() throws Exception {
+        List<String[]> list = new ArrayList<String[]>();
+        File file = new File("E:\\project\\SHRecord2\\src\\main\\resources\\workflow\\store.xls");
+        BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
+        Workbook wb = WorkbookFactory.create(bis);
+        Sheet sheet = wb.getSheetAt(0);
+        for (Row row : sheet) {
+            String[] a = new String[row.getLastCellNum()];
+            int i = 0;
+            for (org.apache.poi.ss.usermodel.Cell cell : row) {
+                switch (cell.getCellType()) {
+                    case org.apache.poi.ss.usermodel.Cell.CELL_TYPE_STRING:
+                        a[i] = StringUtils.trim(cell.getRichStringCellValue().getString());
+                        break;
+                    case org.apache.poi.ss.usermodel.Cell.CELL_TYPE_BOOLEAN:
+                        a[i] = cell.getBooleanCellValue() + "";
+                        break;
+                    case org.apache.poi.ss.usermodel.Cell.CELL_TYPE_FORMULA:
+                        a[i] = StringUtils.trim(cell.getCellFormula());
+                        break;
+                    case org.apache.poi.ss.usermodel.Cell.CELL_TYPE_NUMERIC:
+                        double no = cell.getNumericCellValue();
+                        int empNo = (int)no;
+                        a[i] = String.valueOf(empNo);
+                        break;
+                    default:
+                        a[i] = "";
+                }
+                i++;
+            }
+            list.add(a);
+        }
+        List<StoreGroup> storeGroupList = new ArrayList<StoreGroup>();
+        list.stream().skip(1).forEach(rows -> {
+            StoreGroup storeGroup = new StoreGroup();
+            storeGroup.setJrDepartment(rows[0]);
+            storeGroup.setEmpName(rows[1]);
+            storeGroup.setEmpNo(Integer.parseInt(rows[2]));
+            storeGroup.setStoreOrgName(rows[3]);
+            Integer orgId = storeGroupService.queryIdByOrgName(rows[3]);
+            storeGroup.setStoreOrgId(orgId);
+            storeGroupList.add(storeGroup);
+        });
+        String str = "INSERT INTO T_DK_STORE_GROUP (empNo,empName,storeOrgId,storeOrgName,jrDepartment)values";
+        for(StoreGroup storeGroup : storeGroupList){
+            str += ",("+storeGroup.getEmpNo()+",\'"+storeGroup.getEmpName()+"\',"+storeGroup.getStoreOrgId()+",\'"+storeGroup.getStoreOrgName()+"\',\'"+storeGroup.getJrDepartment()+"\')";
+        }
+        System.out.println(str);
+    }
+
+##使用java8配置
+`Information:Using javac 1.8.0_60 to compile java sources
+Information:java: javacTask: 源发行版 8 需要目标发行版 1.8
+Information:java: Errors occurred while compiling module 'sm'
+Information:2015/12/3 10:55 - Compilation completed with 1 error and 0 warnings in 3s 304ms
+Error:java: Compilation failed: internal java compiler error`
+解决方法：File-->Other Settings-->Default Settings-->Compiler-->Java Compiler改成1.8
+![Alt text](./1449111422031.png)
+
+##HTTPClient
+使用HttpClient发送请求、接收响应很简单，一般需要如下几步即可。
+1. 创建HttpClient对象。
+2. 创建请求方法的实例，并指定请求URL。如果需要发送GET请求，创建HttpGet对象；如果需要发送POST请求，创建HttpPost对象。
+3. 如果需要发送请求参数，可调用HttpGet、HttpPost共同的setParams(HetpParams params)方法来添加请求参数；对于HttpPost对象而言，也可调用setEntity(HttpEntity entity)方法来设置请求参数。
+4. 调用HttpClient对象的execute(HttpUriRequest request)发送请求，该方法返回一个HttpResponse。
+5. 调用HttpResponse的getAllHeaders()、getHeaders(String name)等方法可获取服务器的响应头；调用HttpResponse的getEntity()方法可获取HttpEntity对象，该对象包装了服务器的响应内容。程序可通过该对象获取服务器的响应内容。
+6. 释放连接。无论执行方法是否成功，都必须释放连接
+
+## 查出所有有外键的表
+
+	SELECT fk.name AS 外键名称, ftable.name AS 外键表名, cn.name AS 外键字段名, rtable.name AS 主键表名,  rt.name AS 主键字段名 FROM sysforeignkeys INNER JOIN sysobjects fk ON sysforeignkeys.constid = fk.id INNER JOIN
+      sysobjects ftable ON sysforeignkeys.fkeyid = ftable.id INNER JOIN
+      sysobjects rtable ON sysforeignkeys.rkeyid = rtable.id INNER JOIN
+      syscolumns cn ON sysforeignkeys.fkey = cn.colid AND
+      sysforeignkeys.fkeyid = cn.id INNER JOIN
+      syscolumns rt ON sysforeignkeys.rkeyid = rt.id AND
+      sysforeignkeys.rkey = rt.colid｀
+
+## 查询库中所有的表
+
+	select * from information_schema.tables where table_type = 'BASE TABLE' order by table_name desc
+
+
+## 查看某个表关联的外键表
+SELECT fk.name AS 外键名称, ftable.name AS 外键表名, cn.name AS 外键字段名, rtable.name AS 主键表名,  rt.name AS 主键字段名
+FROM sysforeignkeys INNER JOIN sysobjects fk ON sysforeignkeys.constid = fk.id INNER JOIN
+      sysobjects ftable ON sysforeignkeys.fkeyid = ftable.id INNER JOIN
+      sysobjects rtable ON sysforeignkeys.rkeyid = rtable.id INNER JOIN
+      syscolumns cn ON sysforeignkeys.fkey = cn.colid AND
+      sysforeignkeys.fkeyid = cn.id INNER JOIN
+      syscolumns rt ON sysforeignkeys.rkeyid = rt.id AND
+      sysforeignkeys.rkey = rt.colid
+where rtable.name = '表名'
