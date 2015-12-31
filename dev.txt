@@ -11,4 +11,4 @@ Git has a mutable index called stage.
 
 为什么说Git管理的是修改，而不是文件呢
 
-creating a new branch is quick
+reating a new branch is quick & simple
